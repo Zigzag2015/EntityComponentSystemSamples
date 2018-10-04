@@ -133,6 +133,7 @@ class MySystem : ComponentSystem
 ## Automatic job dependency management (JobComponentSystem)
 
 Managing dependencies is hard. This is why in __JobComponentSystem__ we are doing it automatically for you. The rules are simple: jobs from different systems can read from IComponentData of the same type in parallel. If one of the jobs is writing to the data then they can't run in parallel and will be scheduled with a dependency between the jobs.
+管理依赖关系很难。 这就是__JobComponentSystem__中我们为您自动完成的原因。 规则很简单：来自不同系统的作业可以并行读取相同类型的IComponentData。 如果其中一个作业正在写入数据，那么它们将无法并行运行，并且将在作业之间进行相关性调度。
 
 ```cs
 public class RotationSpeedSystem : JobComponentSystem
@@ -161,28 +162,36 @@ public class RotationSpeedSystem : JobComponentSystem
 ### How does this work?
 
 All jobs and thus systems declare what ComponentTypes they read or write to. As a result when a JobComponentSystem returns a __JobHandle__ it is automatically registered with the EntityManager and all the types including the information about if it is reading or writing.
+所有作业和系统都声明它们读取或写入的ComponentTypes。 因此，当JobComponentSystem返回__JobHandle__时，它会自动注册到EntityManager以及所有类型，包括有关它是读还是写的信息。
 
 Thus if a system writes to component A, and another system later on reads from component A, then the JobComponentSystem looks through the list of types it is reading from and thus passes you a dependency against the job from the first system.
+因此，如果系统写入组件A，而另一个系统稍后从组件A读取，则JobComponentSystem会查看它正在读取的类型列表，从而从第一个系统传递对作业的依赖关系。
 
 So JobComponentSystem simply chains jobs as dependencies where needed and thus causes no stalls on the main thread. But what happens if a non-job ComponentSystem accesses the same data? Because all access is declared, the ComponentSystem automatically __Completes__ all jobs running against ComponentTypes that the system uses before invoking __OnUpdate__.
+因此，JobComponentSystem只需将作业链接到需要的依赖项，从而不会在主线程上产生停顿。 但是，如果非作业ComponentSystem访问相同的数据会发生什么？ 因为声明了所有访问，所以ComponentSystem会自动__Completes__在调用__OnUpdate__之前对系统使用的ComponentTypes运行的所有作业。
 
 #### Dependency management is conservative & deterministic
 
 Dependency management is conservative. ComponentSystem simply tracks all ComponentGroups ever used and stores which types are being written or read based on that. (So if you inject ComponentDataArrays or use __IJobProcessComponentData__ once but skip using it sometimes, then we will create dependencies against all ComponentGroups that have ever been used by that ComponentSystem.)
+依赖管理是保守的。 ComponentSystem只跟踪所有使用过的ComponentGroup，并根据它们存储正在写入或读取的类型。 （因此，如果您注入ComponentDataArrays或使用__IJobProcessComponentData__一次但有时跳过使用它，那么我们将创建针对该ComponentSystem曾经使用过的所有ComponentGroup的依赖项。）
 
 Also when scheduling multiple jobs in a single system, dependencies must be passed to all jobs even though different jobs may need less dependencies. If that proves to be a performance issue the best solution is to split a system into two.
+此外，在单个系统中调度多个作业时，必须将依赖关系传递给所有作业，即使不同的作业可能需要较少的依赖关系。 如果这被证明是性能问题，那么最好的解决方案是将系统分成两部分。
 
 The dependency management approach is conservative. It allows for deterministic and correct behaviour while providing a very simple API.
+依赖管理方法是保守的。 它提供了确定性和正确的行为，同时提供了一个非常简单的API。
 
 ### Sync points
 
 All structural changes have hard sync points. __CreateEntity__, __Instantiate__, __Destroy__, __AddComponent__, __RemoveComponent__, __SetSharedComponentData__ all have a hard sync point. Meaning all jobs scheduled through JobComponentSystem will be completed before creating the Entity, for example. This happens automatically. So for instance: calling __EntityManager.CreateEntity__ in the middle of the frame might result in a large stall waiting for all previously scheduled jobs in the World to complete.
+所有结构更改都有硬同步点。 __CreateEntity __，__ Onstantiate __，__ Destroy __，__ AddComponent __，__ RemoveofComponent __，_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ @ 这意味着通过JobComponentSystem安排的所有作业将在创建实体之前完成。 这会自动发生。 因此，例如：在帧的中间调用__EntityManager.CreateEntity__可能会导致一个大的停顿等待世界上所有先前安排的作业完成。
 
 See [EntityCommandBuffer](#entitycommandbuffer) for more on avoiding sync points when creating Entities during game play.
 
 ### Multiple Worlds
 
 Every World has its own EntityManager and thus a separate set of Job handle dependency management. A hard sync point in one world will not affect the other world. As a result, for streaming and procedural generation scenarios, it is useful to create entities in one World and then move them to another world in one transaction at the beginning of the frame. 
+每个世界都有自己的EntityManager，因此有一组独立的Job句柄依赖关系管理。 一个世界中的硬同步点不会影响另一个世界。 因此，对于流和程序生成场景，在一个世界中创建实体然后在帧的开始处在一个事务中将它们移动到另一个世界是有用的。
 
 See [ExclusiveEntityTransaction](#exclusiveentitytransaction) for more on avoiding sync points for procedural generation & streaming scenarios.
 
@@ -190,6 +199,7 @@ See [ExclusiveEntityTransaction](#exclusiveentitytransaction) for more on avoidi
 ## Shared ComponentData
 
 IComponentData is appropriate for data that varies between Entities, such as storing a world position. __ISharedComponentData__ is useful when many Entities have something in common, for example in the boid demo we instantiate many Entities from the same Prefab and thus the __MeshInstanceRenderer__ between many boid Entities is exactly the same. 
+IComponentData适用于实体之间不同的数据，例如存储世界位置。 当许多实体有共同点时，__ OtherComponentData__非常有用，例如在boid演示中，我们从同一个预制实例中实例化了许多实体，因此许多boid实体之间的__MeshInstanceRenderer__完全相同。
 
 ```cs
 [System.Serializable]
@@ -204,10 +214,13 @@ public struct MeshInstanceRenderer : ISharedComponentData
 ```
 
 In the boid demo we never change the MeshInstanceRenderer component, but we do move all the Entities __TransformMatrix__ every frame.
+在boid演示中，我们永远不会更改MeshInstanceRenderer组件，但我们确实每帧移动所有实体__TransformMatrix__。
 
 The great thing about ISharedComponentData is that there is literally zero memory cost on a per Entity basis.
+关于ISharedComponentData的好处是，每个实体的内存成本实际上是零。、
 
 We use ISharedComponentData to group all entities using the same InstanceRenderer data together and then efficiently extract all matrices for rendering. The resulting code is simple & efficient because the data is laid out exactly as it is accessed.
+我们使用ISharedComponentData将所有实体组合在一起使用相同的InstanceRenderer数据，然后有效地提取所有矩阵以进行渲染。 生成的代码简单而有效，因为数据的布局与访问时完全相同。
 
 * [MeshInstanceRendererSystem.cs](../../ECSJobDemos/Packages/com.unity.entities/Unity.Rendering.Hybrid/MeshInstanceRendererSystem.cs)
 
@@ -220,6 +233,13 @@ We use ISharedComponentData to group all entities using the same InstanceRendere
 * SharedComponentData are automatically [reference counted](https://en.wikipedia.org/wiki/Reference_counting).
 * SharedComponentData should change rarely. Changing a SharedComponentData involves using [memcpy](https://msdn.microsoft.com/en-us/library/aa246468(v=vs.60).aspx) to copy all ComponentData for that Entity into a different chunk.
 
+*具有相同SharedComponentData的实体在同一块中组合在一起。 SharedComponentData的索引每个块存储一次，而不是每个Entity存储一次。因此，SharedComponentData在每个实体的基础上具有零内存开销。
+*使用ComponentGroup，我们可以迭代所有具有相同类型的实体。
+*此外，我们可以使用__ComponentGroup.SetFilter（）__专门针对具有特定SharedComponentData值的实体进行迭代。由于数据布局，此迭代具有较低的开销。
+*使用__EntityManager.GetAllUniqueSharedComponents__，我们可以检索添加到任何活动实体的所有唯一SharedComponentData。
+* SharedComponentData自动[引用计数]（https://en.wikipedia.org/wiki/Reference_counting）。
+* SharedComponentData应该很少更改。更改SharedComponentData涉及使用[memcpy]（https://msdn.microsoft.com/en-us/library/aa246468(v = vs.60）.aspx）将该实体的所有ComponentData复制到另一个块中。、
+
 ## ComponentSystem
 
 ## JobComponentSystem
@@ -227,12 +247,12 @@ We use ISharedComponentData to group all entities using the same InstanceRendere
 ## Iterating entities
 
 Iterating over all Entities that have a matching set of components, is at the center of the ECS architecture.
-
+迭代具有匹配组件集的所有实体，是ECS体系结构的核心。
 
 ## Injection
 
 Injection allows your system to declare its dependencies, while those dependencies are then automatically injected into the injected variables before OnCreateManager, OnDestroyManager and OnUpdate.
-
+注入允许您的系统声明其依赖项，然后在OnCreateManager，OnDestroyManager和OnUpdate之前将这些依赖项自动注入到注入的变量中。
 
 #### Component Group Injection
 
@@ -240,6 +260,8 @@ Component Group injection automatically creates a ComponentGroup based on the re
 
 This lets you iterate over all the entities matching those required Component types.
 Each index refers to the same Entity on all arrays.
+这使您可以迭代匹配所需组件类型的所有实体。
+每个索引都指向所有阵列上的相同实体。
 
 ```cs
 class MySystem : ComponentSystem
@@ -258,7 +280,9 @@ class MySystem : ComponentSystem
         public EntityArray Entities;
 
         // The GameObject Array lets us retrieve the game object.
-        // It also constrains the group to only contain GameObject based entities.                  
+        // It also constrains the group to only contain GameObject based entities.              
+		// GameObject数组让我们检索游戏对象。
+         //它还将组限制为仅包含基于GameObject的实体。		
         public GameObjectArray GameObjects;
 
         // Excludes entities that contain a MeshCollider from the group
@@ -319,6 +343,16 @@ Generally speaking GetComponentGroup is used rarely, since ComponentGroup Inject
 
 However the ComponentGroup API can be used for more advanced use cases like filtering a Component Group based on specific SharedComponent values.
 
+ComponentGroup是基础类，在其基础上构建所有迭代方法（Injection，foreach，IJobProcessComponentData等）
+
+本质上，ComponentGroup由一组必需的组件，减法组件构成。
+
+ComponentGroup允许您提取单个数组。 所有这些数组都保证同步（长度相同，每个数组的索引指的是同一个实体）。
+
+一般来说，很少使用GetComponentGroup，因为ComponentGroup Injection和IJobProcessComponetnData更简单，更具表现力。
+
+但是，ComponentGroup API可用于更高级的用例，例如根据特定的SharedComponent值过滤组件组。
+
 ```cs
 struct SharedGrouping : ISharedComponentData
 {
@@ -369,6 +403,7 @@ EntityManager.SetComponentData(entity, position);
 ```
 
 However EntityManager can't be used on a C# job. __ComponentDataFromEntity__ gives you a simple API that can also be safely used in a job.
+但是，EntityManager不能用于C＃作业。 __ComponentDataFromEntity__为您提供了一个简单的API，也可以安全地在作业中使用。
 
 ```cs
 // ComponentDataFromEntity can be automatically injected
@@ -386,6 +421,10 @@ EntityTransaction is an API to create & destroy entities from a job. The purpose
 ExclusiveEntityTransaction should be used on manually created world that acts as a staging area to construct & setup entities.
 After the job has completed you can end the EntityTransaction and use ```EntityManager.MoveEntitiesFrom(EntityManager srcEntities);``` to move the entities to an active world.
 
+EntityTransaction是用于从作业创建和销毁实体的API。 目的是启用程序生成场景，其中必须在作业上进行大规模实例化。 顾名思义，它对EntityManager的任何其他访问都是独占的。
+
+ExclusiveEntityTransaction应该用于手动创建的世界，作为构建和设置实体的临时区域。
+作业完成后，您可以结束EntityTransaction并使用```EntityManager.MoveEntitiesFrom（EntityManager srcEntities）;```将实体移动到活动世界。
 
 ## EntityCommandBuffer
 
@@ -393,6 +432,9 @@ The command buffer class solves two important problems:
 
 1. When you're in a job, you can't access the entity manager
 2. When you access the entity manager (to say, create an entity) you invalidate all injected arrays and component groups
+
+1.当您在工作时，您无法访问实体管理器
+2.当您访问实体管理器（例如，创建实体）时，您将使所有注入的数组和组件组无效
 
 The command buffer abstraction allows you to queue up changes to be performed (from either a job or from the main thread) so that they can take effect later on the main thread. There are two ways to use a command buffer:
 
@@ -481,3 +523,15 @@ DestroyEntity is shorthand for
 
 However, if SystemState components are present, they are not removed. This gives a system the opportunity to cleanup any resources or state associated with an Entity ID. The Entity id will only be reused once all SystemState components have been removed.
 
+
+SystemStateComponentData的目的是允许您跟踪系统内部的资源，并有机会根据需要适当地创建和销毁这些资源，而不依赖于单个回调。
+
+SystemStateComponentData和SystemStateSharedComponentData分别与ComponentData和SharedComponentData完全相同，除了一个重要方面：
+1.销毁实体时不会删除SystemState组件。
+
+DestroyEntity是简写
+1.查找引用此特定实体ID的所有组件
+2.删除这些组件
+3.回收实体ID以供重用。
+
+但是，如果存在SystemState组件，则不会删除它们。 这使系统有机会清除与实体ID相关联的任何资源或状态。 只有在删除所有SystemState组件后，才会重用Entity id。
